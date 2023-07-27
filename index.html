@@ -1,0 +1,56 @@
+
+<!doctype html>
+<html>
+
+    <head>
+        <title>gaborkalmar.hu</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="/dist/output.css" rel="stylesheet">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+        <script>
+            // https://stackoverflow.com/a/54026460/510788
+            const cipher = salt => {
+                const textToChars = text => text.split('').map(c => c.charCodeAt(0));
+                const byteHex = n => ("0" + Number(n).toString(16)).substr(-2);
+                const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
+
+                return text => text.split('')
+                    .map(textToChars)
+                    .map(applySaltToChar)
+                    .map(byteHex)
+                    .join('');
+            }
+
+            const decipher = salt => {
+                const textToChars = text => text.split('').map(c => c.charCodeAt(0));
+                const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
+                return encoded => encoded.match(/.{1,2}/g)
+                    .map(hex => parseInt(hex, 16))
+                    .map(applySaltToChar)
+                    .map(charCode => String.fromCharCode(charCode))
+                    .join('');
+            }
+
+            // To create a cipher
+            // const myCipher = cipher('secret')('message')
+
+            const getLinkedinUrl = secret => decipher(secret)('617d7d797a3326267e7e7e27656067626c6d6067276a66642660672662686564687b6e686b667b26');
+
+            console.log('Please call `getLinkedinUrl` with the domain\'s second character and the first character from the TLD.');
+        </script>
+    </head>
+
+    <body>
+        <div class="relative flex min-h-screen flex-col justify-center items-center overflow-hidden py-6 sm:py-12">
+            <span class="text-[60px] text-red-600 subpixel-antialiased font-thin tracking-widest neon-text text-center">
+                gabor kalmar .hu
+            </span>
+
+            <span class="disclaimer-text absolute bottom-2 right-4">Free SVG Background by <a target="_blank"
+                    href="https://bgjar.com">BGJar</a></span>
+        </div>
+    </body>
+
+</html>
