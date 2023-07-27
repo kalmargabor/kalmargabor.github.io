@@ -1,55 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Kalmár Gábor Services</title>
+    <meta name="description" content="Kalmár Gábor, full-stack web-developer">
 
-<!doctype html>
-<html>
+    <style>
+      body {
+        padding: 0;
+        margin: 0;
+        font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
+          "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
+        height: 100vh;
+        background: rgb(206, 41, 57);
+        background: linear-gradient(
+            180deg,
+            rgba(206, 41, 57, 1) 0%,
+            rgba(206, 41, 57, 1) 33%,
+            rgba(255, 255, 255, 1) 33%,
+            rgba(255, 255, 255, 1) 66%,
+            rgba(71, 112, 80, 1) 66%,
+            rgba(71, 112, 80, 1) 100%
+          ),
+          linear-gradient(
+            120deg,
+            rgba(0, 0, 0, 0.5) 0%,
+            rgba(255, 255, 255, 0.5) 50%
+          );
+        background-size: cover;
+        display: grid;
+        justify-content: center;
+        align-content: center;
+      }
 
-    <head>
-        <title>gaborkalmar.hu</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="/dist/output.css" rel="stylesheet">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+      #overlay {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(
+          120deg,
+          rgba(0, 0, 0, 0.4) 0%,
+          rgba(0, 0, 0, 0.1) 50%,
+          rgba(255, 255, 255, 0.5) 50%
+        );
+        z-index: 2;
+        pointer-events: none;
+        mix-blend-mode: darken;
+      }
 
-        <script>
-            // https://stackoverflow.com/a/54026460/510788
-            const cipher = salt => {
-                const textToChars = text => text.split('').map(c => c.charCodeAt(0));
-                const byteHex = n => ("0" + Number(n).toString(16)).substr(-2);
-                const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
+      #overlay2 {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(
+          10deg,
+          rgba(0, 0, 0, 0.4) 0%,
+          rgba(0, 0, 0, 0.1) 20%,
+          rgba(255, 255, 255, 0.5) 20%
+        );
+        z-index: 3;
+        pointer-events: none;
+        mix-blend-mode: darken;
+      }
+    </style>
 
-                return text => text.split('')
-                    .map(textToChars)
-                    .map(applySaltToChar)
-                    .map(byteHex)
-                    .join('');
-            }
+    <script>
+        // https://stackoverflow.com/a/54026460/510788
+        const cipher = salt => {
+            const textToChars = text => text.split('').map(c => c.charCodeAt(0));
+            const byteHex = n => ("0" + Number(n).toString(16)).substr(-2);
+            const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
+    
+            return text => text.split('')
+                .map(textToChars)
+                .map(applySaltToChar)
+                .map(byteHex)
+                .join('');
+        }
+    
+        const decipher = salt => {
+            const textToChars = text => text.split('').map(c => c.charCodeAt(0));
+            const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
+            return encoded => encoded.match(/.{1,2}/g)
+                .map(hex => parseInt(hex, 16))
+                .map(applySaltToChar)
+                .map(charCode => String.fromCharCode(charCode))
+                .join('');
+        }
+    
+        // To create a cipher
+        // const myCipher = cipher('secret')('message')
+    
+        const getLinkedinUrl = secret => decipher(secret)('617d7d797a3326267e7e7e27656067626c6d6067276a66642660672662686564687b6e686b667b26');
+    
+        console.log('Please call `getLinkedinUrl` with the domain\'s second character and the first character from the TLD.');
+    </script>
+  </head>
+  <body>
+    <h1>KA&middot;GA&middot;SE</h1>
 
-            const decipher = salt => {
-                const textToChars = text => text.split('').map(c => c.charCodeAt(0));
-                const applySaltToChar = code => textToChars(salt).reduce((a, b) => a ^ b, code);
-                return encoded => encoded.match(/.{1,2}/g)
-                    .map(hex => parseInt(hex, 16))
-                    .map(applySaltToChar)
-                    .map(charCode => String.fromCharCode(charCode))
-                    .join('');
-            }
-
-            // To create a cipher
-            // const myCipher = cipher('secret')('message')
-
-            const getLinkedinUrl = secret => decipher(secret)('617d7d797a3326267e7e7e27656067626c6d6067276a66642660672662686564687b6e686b667b26');
-
-            console.log('Please call `getLinkedinUrl` with the domain\'s second character and the first character from the TLD.');
-        </script>
-    </head>
-
-    <body>
-        <div class="relative flex min-h-screen flex-col justify-center items-center overflow-hidden py-6 sm:py-12">
-            <span class="text-[60px] text-red-600 subpixel-antialiased font-thin tracking-widest neon-text text-center">
-                gabor kalmar .hu
-            </span>
-
-            <span class="disclaimer-text absolute bottom-2 right-4">Please open the console</span>
-        </div>
-    </body>
-
+    <div id="overlay"></div>
+  </body>
 </html>
