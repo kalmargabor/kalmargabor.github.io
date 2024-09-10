@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Lines from Lat/Long</title>
+	
+	 <meta name="robots" content="noindex, nofollow">
+	 
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        svg {
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+        }
+		.line-label {
+            font-size: 10px;
+            fill: rgba(255,255,255,.2);
+        }
+    </style>
+	
+	<script src="crypto-js.min.js"></script>
+</head>
+<body>
+
+<svg id="map"></svg>
+
+<script>
+	const draw = async () => {
+		let d = localStorage.getItem('d');
+		const urlParams = new URLSearchParams(window.location.search);
+		const xxxParam = urlParams.get('xxx');
+
+		if(!d || xxxParam) {
+		  d = prompt('.');
+		  
+		  localStorage.setItem('d', d);
+		}
+		
+		if(d.length == 0) {
+		  alert('Rossz API kulcs');
+		  return;
+		}
+		
+		let apiKey = null;
+
+		try {
+			apiKey = CryptoJS.AES.decrypt('U2FsdGVkX1/DoR/Bo92eY6ZsKq4F8RIpdWiolCMsnHDZZVhlQs/VCILZwMFyth21C5XHA8Ui/DlLC0ac+VahUg==', d).toString(CryptoJS.enc.Utf8);
+		} catch(e) {
+			alert('Rossz API kulcs');
+			return;
+		}
+		
+		const results = await fetch(`https://data.traffic.hereapi.com/v7/flow?apiKey=${apiKey}&in=corridor:BF--3iJkg82Dl8Ch9M50B5_B2Z_8G_hBlrLvmCj6FpyB36I0DhlH33DzmHxtE08E;r=1000&locationReferencing=shape&units=metric`).then(r => r.json()).then(r => r);
+		
+
+		// Mapping line segments from results
+		const lineSegments = results.results.map(result => {
+			return {
+				currentFlow: result.currentFlow, 
+				description: result.location.description,
+				links: result.location.shape.links.map(link => {
+					return [
+						{ lat: link.points[0].lat, lon: link.points[0].lng },
+						{ lat: link.points[1].lat, lon: link.points[1].lng }
+					];
+				})
+			};
+		});
+
+		// SVG element
+		const svg = document.getElementById('map');
+
+		// Normalization function to fit coordinates within the SVG dimensions
+		function normalizeCoords(coord, minLat, maxLat, minLon, maxLon, width, height) {
+			const x = ((coord.lon - minLon) / (maxLon - minLon)) * width;
+			const y = height - ((coord.lat - minLat) / (maxLat - minLat)) * height;
+			return { x, y };
+		}
+
+		// Flatten only the first two elements of each link in all segments for normalization
+		const allCoords = lineSegments.flatMap(segment => 
+			segment.links.flatMap(link => link.slice(0, 2))
+		);
+
+		// Calculate bounding box for normalization
+		const lats = allCoords.map(c => c.lat);
+		const lons = allCoords.map(c => c.lon);
+		const minLat = Math.min(...lats);
+		const maxLat = Math.max(...lats);
+		const minLon = Math.min(...lons);
+		const maxLon = Math.max(...lons);
+
+		// SVG dimensions
+		const width = window.innerWidth;
+		const height = window.innerHeight;
+
+		// Track descriptions to ensure each label is added only once
+		const addedDescriptions = new Set();
+
+		// Function to place label on the reverse side of the line
+		function placeLabelReverseSide(start, end) {
+			const midX = (start.x + end.x) / 2;
+			const midY = (start.y + end.y) / 2;
+			const dx = end.x - start.x;
+			const dy = end.y - start.y;
+
+			// Calculate a small perpendicular offset (reverse side)
+			const offsetX = -dy * 0.1; // Perpendicular direction with scaling factor
+			const offsetY = dx * 0.1;  // Perpendicular direction with scaling factor
+
+			return { x: midX + offsetX, y: midY + offsetY };
+		}
+
+		// Draw separate lines for each link in lineSegments
+		lineSegments.forEach(segment => {
+			const linksCount = segment.links.length;
+			const jamFactor = segment.currentFlow.jamFactor;
+		
+			segment.links.forEach((link, i) => {
+				const [startCoord, endCoord] = link;
+				const start = normalizeCoords(startCoord, minLat, maxLat, minLon, maxLon, width, height);
+				const end = normalizeCoords(endCoord, minLat, maxLat, minLon, maxLon, width, height);
+
+				// Create line element
+				const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+				line.setAttribute('x1', start.x);
+				line.setAttribute('y1', start.y);
+				line.setAttribute('x2', end.x);
+				line.setAttribute('y2', end.y);
+				
+				
+				if(jamFactor < 1) {
+					line.setAttribute('stroke', 'green');
+					line.setAttribute('stroke-width', '1');
+				} else if(jamFactor > 1 && jamFactor < 6) {
+					line.setAttribute('stroke', 'yellow');
+					line.setAttribute('stroke-width', '2');
+				} else if(jamFactor > 6) {
+					line.setAttribute('stroke', 'red');
+					line.setAttribute('stroke-width', '3');
+				}
+				
+				
+
+				// Add metadata from description as tooltip
+				line.setAttribute('data-description', segment.description);
+
+				// Append to SVG
+				svg.appendChild(line);
+
+				// Add a text label for the description near the first occurrence of the line
+				if (!addedDescriptions.has(segment.description) && linksCount-1 == i) {
+					const labelPos = placeLabelReverseSide(start, end);
+					const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+					label.setAttribute('x', labelPos.x);
+					label.setAttribute('y', labelPos.y);
+					label.setAttribute('class', 'line-label');
+					label.textContent = segment.description;
+					svg.appendChild(label);
+
+					// Mark description as added
+					addedDescriptions.add(segment.description);
+				}
+			});
+		});
+	};
+	
+	draw();
+	
+	
+</script>
+
+</body>
+</html>
