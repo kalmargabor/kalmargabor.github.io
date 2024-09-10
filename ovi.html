@@ -44,10 +44,20 @@
 <span style="color: orange">Délután elmegy</span> <br/>
 <span style="color: pink">Délután szopó</span> <br/>
 
+<button type="button" onclick="getIncidents()">Események</button>
+
 
 </div>
 
 <script>
+	const getIncidents = async () => {
+		const results = await fetch(`https://data.traffic.hereapi.com/v7/incidents?apiKey=${window.apiKey}&in=corridor:BF--3iJkg82Dl8Ch9M50B5_B2Z_8G_hBlrLvmCj6FpyB36I0DhlH33DzmHxtE08E;r=1000&locationReferencing=shape&units=metric`).then(r => r.json()).then(r => r);
+		
+		const data = results.results.map(i => { return {type: i.incidentDetails.type, criticality: i.incidentDetails.criticality, summary:i.incidentDetails.summary ? i.incidentDetails.summary.value : ''}; } )
+		
+		alert(JSON.stringify(data, null, 2));
+	};
+	
 	const draw = async () => {
 		let d = localStorage.getItem('d');
 		const urlParams = new URLSearchParams(window.location.search);
@@ -64,16 +74,16 @@
 		  return;
 		}
 		
-		let apiKey = null;
+		window.apiKey = null;
 
 		try {
-			apiKey = CryptoJS.AES.decrypt('U2FsdGVkX1/DoR/Bo92eY6ZsKq4F8RIpdWiolCMsnHDZZVhlQs/VCILZwMFyth21C5XHA8Ui/DlLC0ac+VahUg==', d).toString(CryptoJS.enc.Utf8);
+			window.apiKey = CryptoJS.AES.decrypt('U2FsdGVkX1/DoR/Bo92eY6ZsKq4F8RIpdWiolCMsnHDZZVhlQs/VCILZwMFyth21C5XHA8Ui/DlLC0ac+VahUg==', d).toString(CryptoJS.enc.Utf8);
 		} catch(e) {
 			alert('Rossz API kulcs');
 			return;
 		}
 		
-		const results = await fetch(`https://data.traffic.hereapi.com/v7/flow?apiKey=${apiKey}&in=corridor:BF--3iJkg82Dl8Ch9M50B5_B2Z_8G_hBlrLvmCj6FpyB36I0DhlH33DzmHxtE08E;r=1000&locationReferencing=shape&units=metric`).then(r => r.json()).then(r => r);
+		const results = await fetch(`https://data.traffic.hereapi.com/v7/flow?apiKey=${window.apiKey}&in=corridor:BF--3iJkg82Dl8Ch9M50B5_B2Z_8G_hBlrLvmCj6FpyB36I0DhlH33DzmHxtE08E;r=1000&locationReferencing=shape&units=metric`).then(r => r.json()).then(r => r);
 		
 
 		// Mapping line segments from results
@@ -156,7 +166,7 @@
 				line.setAttribute('y2', end.y);
 				
 				// TODO m3 vagy m0?
-				let morningOrAfternoon = start.x > end.x ? 'afternoon' : 'morning';
+				let morningOrAfternoon = start.x < end.x ? 'afternoon' : 'morning';
 				
 				if(morningOrAfternoon == 'morning') {
 					if(jamFactor < 1) {
