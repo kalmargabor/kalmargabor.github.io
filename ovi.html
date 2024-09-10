@@ -18,6 +18,8 @@
             width: 100vw;
             height: 100vh;
             background-color: black;
+			touch-action: none; /* Prevents default touch behaviors */
+            cursor: grab;
         }
 		.line-label {
             font-size: 10px;
@@ -32,7 +34,7 @@
 </head>
 <body>
 
-<svg id="map"></svg>
+<svg id="map" viewBox="0 0 1000 1000"></svg>
 
 <div class="overlay">
   <span style="color: green">Reggel ok</span> <br/>
@@ -42,7 +44,7 @@
 
 <span style="color: gray">Délután ok</span> <br/>
 <span style="color: orange">Délután elmegy</span> <br/>
-<span style="color: pink">Délután szopó</span> <br/>
+<span style="color: purple">Délután szopó</span> <br/>
 
 <button type="button" onclick="getIncidents()">Események</button>
 
@@ -124,8 +126,11 @@
 		const maxLon = Math.max(...lons);
 
 		// SVG dimensions
-		const width = window.innerWidth;
-		const height = window.innerHeight;
+		/*const width = window.innerWidth;
+		const height = window.innerHeight;*/
+		
+		const width = 1000;
+		const height = 1000;
 
 		// Track descriptions to ensure each label is added only once
 		const addedDescriptions = new Set();
@@ -143,7 +148,18 @@
 
 			return { x: midX + offsetX, y: midY + offsetY };
 		}
+		
+		const lineWidth = 1;
+/*
+Lanes
+The lanes field will be present only when there is lane level flow data for the current flow roadway and the advancedFeatures parameter contains lanes.
 
+For more information, see the Advanced Traffic.
+
+Note
+Requests that include the advancedFeatures parameter will fall into the transaction category based on the Advanced Traffic. For more information, see the HERE Platform terms and conditions.
+
+For more details on the contents of the lanes field, see Lane level flow.*/
 		// Draw separate lines for each link in lineSegments
 		lineSegments.forEach(segment => {
 			const linksCount = segment.links.length;
@@ -152,11 +168,26 @@
 			if(!segment.description.match(/M3/) && !segment.description.match(/M0/)) {
 				//return;
 			}
+			
+			let lastPoint = {x: 0, y: 0};
 		
 			segment.links.forEach((link, i) => {
 				const [startCoord, endCoord] = link;
 				const start = normalizeCoords(startCoord, minLat, maxLat, minLon, maxLon, width, height);
 				const end = normalizeCoords(endCoord, minLat, maxLat, minLon, maxLon, width, height);
+
+				if (lastPoint.x > 0 && lastPoint.y > 0 && (lastPoint.x != start.x || lastPoint.y != start.y)) {
+					const lineFiller = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+					lineFiller.setAttribute('x1', start.x);
+					lineFiller.setAttribute('y1', start.y);
+					lineFiller.setAttribute('x2', lastPoint.x);
+					lineFiller.setAttribute('y2', lastPoint.y);
+					lineFiller.setAttribute('stroke', 'white');
+					lineFiller.setAttribute('stroke-width', lineWidth);
+					svg.appendChild(lineFiller);
+				}
+				
+				lastPoint = end;
 
 				// Create line element
 				const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -171,25 +202,31 @@
 				if(morningOrAfternoon == 'morning') {
 					if(jamFactor < 1) {
 						line.setAttribute('stroke', 'green');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke-width', lineWidth);
+						
 					} else if(jamFactor > 1 && jamFactor < 6) {
 						line.setAttribute('stroke', 'yellow');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke-width', lineWidth);
 					} else if(jamFactor > 6) {
 						line.setAttribute('stroke', 'red');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke-width', lineWidth);
+						
+						drawCircle(svg, start.x, start.y, (start.x - end.x + start.y - end.y) );
 					}
 					
 				} else {
 					if(jamFactor < 1) {
 						line.setAttribute('stroke', 'gray');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke-width', lineWidth);
 					} else if(jamFactor > 1 && jamFactor < 6) {
 						line.setAttribute('stroke', 'orange');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke-width', lineWidth);
+						
 					} else if(jamFactor > 6) {
-						line.setAttribute('stroke', 'pink');
-						line.setAttribute('stroke-width', '1');
+						line.setAttribute('stroke', 'purple');
+						line.setAttribute('stroke-width', lineWidth);
+						
+						drawCircle(svg, start.x, start.y, (start.x - end.x + start.y - end.y) );
 					}
 				}
 				
@@ -219,9 +256,147 @@
 		});
 	};
 	
+	const drawCircle = (svg, x, y, r) => {
+		const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+
+console.log(x,y,r);
+		// Set the circle's attributes
+		circle.setAttribute('cx', x); // x-coordinate of the center
+		circle.setAttribute('cy', y); // y-coordinate of the center
+		circle.setAttribute('r', r);   // radius of the circle
+		circle.setAttribute('fill', 'rgba(255,0,0,.5)'); // fill color (transparent)
+		/*circle.setAttribute('stroke', 'black');     // stroke color
+		circle.setAttribute('stroke-width', 0); */    // stroke width
+
+		// Append the circle to the SVG element
+		svg.appendChild(circle);
+	};
+	
 	draw();
 	
 	
+</script>
+
+<script>
+    const svg = document.getElementById('map');
+
+    // Initial values for viewBox
+    let viewBox = { x: 0, y: 0, width: 1000, height: 1000 };
+
+    // Zoom factor for desktop and mobile
+    const zoomFactor = 1.1;
+
+    // State for panning
+    let isPanning = false;
+    let startPoint = { x: 0, y: 0 };
+    let startViewBox = { ...viewBox };
+
+    // State for touch-based zoom
+    let initialDistance = 0;
+
+    // Update SVG viewBox attribute
+    function updateViewBox() {
+        svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+    }
+
+    // Handle zooming with mouse wheel
+    svg.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const { offsetX, offsetY, deltaY } = event;
+
+        const svgPoint = {
+            x: (offsetX / svg.clientWidth) * viewBox.width + viewBox.x,
+            y: (offsetY / svg.clientHeight) * viewBox.height + viewBox.y
+        };
+
+        const scale = deltaY < 0 ? 1 / zoomFactor : zoomFactor;
+
+        viewBox.width *= scale;
+        viewBox.height *= scale;
+
+        viewBox.x = svgPoint.x - (svgPoint.x - viewBox.x) * scale;
+        viewBox.y = svgPoint.y - (svgPoint.y - viewBox.y) * scale;
+
+        updateViewBox();
+    });
+
+    // Handle panning with mouse
+    svg.addEventListener('mousedown', (event) => {
+        isPanning = true;
+        startPoint = { x: event.clientX, y: event.clientY };
+        startViewBox = { ...viewBox };
+        svg.style.cursor = 'grabbing';
+    });
+
+    svg.addEventListener('mousemove', (event) => {
+        if (!isPanning) return;
+
+        const dx = (event.clientX - startPoint.x) * (viewBox.width / svg.clientWidth);
+        const dy = (event.clientY - startPoint.y) * (viewBox.height / svg.clientHeight);
+
+        viewBox.x = startViewBox.x - dx;
+        viewBox.y = startViewBox.y - dy;
+
+        updateViewBox();
+    });
+
+    svg.addEventListener('mouseup', () => {
+        isPanning = false;
+        svg.style.cursor = 'grab';
+    });
+
+    svg.addEventListener('mouseleave', () => {
+        isPanning = false;
+        svg.style.cursor = 'grab';
+    });
+
+    // Handle touch events for panning and pinch-to-zoom
+    svg.addEventListener('touchstart', (event) => {
+        if (event.touches.length === 1) {
+            // Single touch - start panning
+            isPanning = true;
+            startPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+            startViewBox = { ...viewBox };
+        } else if (event.touches.length === 2) {
+            // Two fingers - start pinch zoom
+            isPanning = false;
+            initialDistance = getDistance(event.touches[0], event.touches[1]);
+        }
+    });
+
+    svg.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+        if (isPanning && event.touches.length === 1) {
+            // Panning with one finger
+            const dx = (event.touches[0].clientX - startPoint.x) * (viewBox.width / svg.clientWidth);
+            const dy = (event.touches[0].clientY - startPoint.y) * (viewBox.height / svg.clientHeight);
+
+            viewBox.x = startViewBox.x - dx;
+            viewBox.y = startViewBox.y - dy;
+
+            updateViewBox();
+        } else if (event.touches.length === 2) {
+            // Pinch zoom with two fingers
+            const currentDistance = getDistance(event.touches[0], event.touches[1]);
+            const scale = initialDistance / currentDistance;
+
+            viewBox.width = startViewBox.width * scale;
+            viewBox.height = startViewBox.height * scale;
+
+            updateViewBox();
+        }
+    });
+
+    svg.addEventListener('touchend', () => {
+        isPanning = false;
+    });
+
+    // Helper function to calculate the distance between two touch points
+    function getDistance(touch1, touch2) {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
 </script>
 
 </body>
